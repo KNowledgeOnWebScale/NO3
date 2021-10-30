@@ -20,7 +20,7 @@ async function parse() {
         c:Cat a c:Animal .
                 
         { 
-            [ ?pred ?x ] a c:Animal .
+            ?brol a c:Animal .
         }         
         => 
         {
@@ -33,11 +33,11 @@ async function parse() {
             store.add(quad);
         }
         else {
-            //console.log("# That's all, folks!", prefixes);
+            // We are done with parsing
         }
 
         if (error) {
-            console.error(error);
+            throw new Error(error);
         }
     });
 
@@ -179,7 +179,7 @@ function isBlankNode(term) {
 }
 
 function collect(store,subject,predicate,object,graph) {
-    const matchCollector = [];
+    const collector = [];
     
     if (graph === undefined) {
         graph = defaultGraph();
@@ -206,7 +206,7 @@ function collect(store,subject,predicate,object,graph) {
         }
            
         if (binding.size != 0) {
-            matchCollector.push( binding );
+            collector.push( binding );
         }
     } , isVariable(subject) ? undefined : subject
       , isVariable(predicate) ? undefined : predicate 
@@ -218,6 +218,6 @@ function collect(store,subject,predicate,object,graph) {
         return undefined;
     }
     else {
-        return matchCollector;
+        return collector;
     }
 }
