@@ -1,33 +1,20 @@
 const N3 = require('n3');
+const fs = require('fs');
 const { DataFactory } = N3;
 const { namedNode, literal, defaultGraph, quad } = DataFactory;
 
-doit();
+doit(process.argv[2]);
 
-async function parse() {
+const DYNAMICS = {
+    'http://www.w3.org/2000/10/swap/list#in': function (store,quad) {
+        return list_in(store,quad);
+    }
+}
+
+async function parse(N3String) {
     const parser = new N3.Parser({ format: 'Notation3' });
     const store = new N3.Store();    
-    await parser.parse(
-        `
-        PREFIX c: <http://example.org/cartoons#>
-        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> 
-        c:Tom a c:Cat.
-        c:Jerry a c:Mouse;
-                c:smarterThan c:Tom.
-        c:Mouse c:drinks "wine" .
-        c:Mouse c:date "2001-08-10"^^xsd:date .
-        c:Mouse c:knows ( c:Paul c:Dave ) .
-        c:Cat a c:Animal .
-                
-        { 
-            ?brol a c:Animal .
-        }         
-        => 
-        {
-            ?s c:say "Meow".
-        }.
-
-        `,
+    await parser.parse(N3String,
         (error, quad, prefixes) => {
         if (quad) {
             store.add(quad);
@@ -44,8 +31,9 @@ async function parse() {
     return store;
 }
 
-async function doit() {
-    const store = await parse();
+async function doit(path) {
+    const N3String = fs.readFileSync(path, { encoding: "utf8", flag: "r" });
+    const store = await parse(N3String);
     store.forEach( (quad) => {
         console.log('-------');
         const res1 = shakeGraph(store,quad.subject);
@@ -56,14 +44,14 @@ async function doit() {
 function shakeGraph(store,graph) {
     let bindings = [];
 
-    const result = store.every( (quad) => {
-        const subject   = quad.subject;
-        const predicate = quad.predicate;
-        const object    = quad.object;
-     
+    const result = store.every( (q) => {
+        const subject   = q.subject;
+        const predicate = q.predicate;
+        const object    = q.object;
+    
         let matchCollector;
 
-        if (hasVariable(quad) && bindings.length != 0) {
+        if (hasWildcard(q) && bindings.length != 0) {
             // Try all possible bindings
             bindings = bindings.filter( binding => {
                 let _subject;
@@ -72,7 +60,7 @@ function shakeGraph(store,graph) {
 
                 let result = true;
 
-                if (isVariable(subject)) {
+                if (isVariableOrBlank(subject)) {
                     _subject = subject.value in binding ?
                                  binding[ subject.value ] :
                                  subject;
@@ -102,6 +90,8 @@ function shakeGraph(store,graph) {
                 const match = collect(store,_subject,_predicate,_object);
 
                 if (match === undefined) {
+                    console.log(q);
+                    console.error('Match is undefined');
                     // No results found
                     result = false;
                 }
@@ -128,11 +118,13 @@ function shakeGraph(store,graph) {
         // When we find no match for the triple in the rule
         // then it we have no result
         if (matchCollector === undefined) {
+            console.error('No matches found');
             return false;
         }
 
         // We were given a variable but didn't find a match...
-        if ( hasVariable(quad) && matchCollector.length == 0 ){
+        if ( hasWildcard(q) && matchCollector.length == 0 ){
+            console.error('Wildcard without a match!');
             return false;
         }
 
@@ -147,11 +139,11 @@ function shakeGraph(store,graph) {
         let newBindings = [];
         matchCollector.forEach( match => {
             bindings.forEach( binding => {
-                newBindings.push( Object.assign(binding,match) );
+                newBindings.push( Object.assign({},binding,match) );
             });
         });
 
-        binding = newBindings;
+        bindings = newBindings;
 
         return true;
     }, undefined, undefined, undefined , graph);
@@ -164,10 +156,31 @@ function shakeGraph(store,graph) {
     }
 }
 
-function hasVariable(quad) {
-    return isVariable(quad.subject) ||
+function dynamic(url,store,quad) {
+    if (! isDynamic(url)) {
+        return undefined;
+    }
+    else {
+        return DYNAMICS[url](store,quad);
+    }
+}
+
+function isDynamic(url) {
+    return url in DYNAMICS;
+}
+
+function hasDynamic(quad) {
+    return isDynamic(quad.predicate);
+}
+
+function hasWildcard(quad) {
+    return isVariableOrBlank(quad.subject) ||
            isVariable(quad.predicate) ||
            isVariable(quad.object);
+}
+
+function isVariableOrBlank(term) {
+    return isVariable(term) || isBlankNode(term);
 }
 
 function isVariable(term) {
@@ -193,7 +206,7 @@ function collect(store,subject,predicate,object,graph) {
 
         let binding = {};
 
-        if (isVariable(subject)) {
+        if (isVariableOrBlank(subject)) {
             binding[ subject.value ] = quad.subject;
         }
 
@@ -208,7 +221,7 @@ function collect(store,subject,predicate,object,graph) {
         if (binding.size != 0) {
             collector.push( binding );
         }
-    } , isVariable(subject) ? undefined : subject
+    } , isVariableOrBlank(subject) ? undefined : subject
       , isVariable(predicate) ? undefined : predicate 
       , isVariable(object) ? undefined : object 
       , graph
@@ -220,4 +233,9 @@ function collect(store,subject,predicate,object,graph) {
     else {
         return collector;
     }
+}
+
+function list_in(store,quad) {
+    console.log('hi');
+    return [{}];
 }

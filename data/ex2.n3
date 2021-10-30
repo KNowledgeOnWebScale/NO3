@@ -1,0 +1,15 @@
+PREFIX : <http://www.example.org/>
+PREFIX list: <http://www.w3.org/2000/10/swap/list#>
+
+:Alice :loves :Bob .
+:Bob :loves :Wine .
+:Wine :loves :Alice .
+:Wine :loves :Bob .
+
+{
+    ?a :loves ?b .
+}
+=> 
+{
+    ?b :loves :a .
+}.
