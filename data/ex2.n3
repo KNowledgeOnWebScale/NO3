@@ -8,6 +8,7 @@ PREFIX list: <http://www.w3.org/2000/10/swap/list#>
 
 {
     ?a :loves ?b .
+    ?b list:in (:Alice :Bob). 
 }
 => 
 {

@@ -5,9 +5,13 @@ const { namedNode, literal, defaultGraph, quad } = DataFactory;
 
 doit(process.argv[2]);
 
-const DYNAMICS = {
+const BUILTIN  = Symbol('built-in');
+const BUILTINS = {
     'http://www.w3.org/2000/10/swap/list#in': function (store,quad) {
         return list_in(store,quad);
+    },
+    'http://www.w3.org/2000/10/swap/list#length': function (store,quad) {
+        return list_length(store,quad);
     }
 }
 
@@ -43,23 +47,40 @@ async function doit(path) {
 
 function shakeGraph(store,graph) {
     let bindings = [];
+    let builtInValues = new Set();
 
     const result = store.every( (q) => {
         const subject   = q.subject;
         const predicate = q.predicate;
         const object    = q.object;
-    
+        const graph     = q.graph;
+
+        // Match collector is an array of bindings that are found for the current quad
         let matchCollector;
 
+        // Ignore subjects that are part of a built-in subgraph
+        if (builtInValues.has(subject.value)) {
+            if (isBlankNode(object)) {
+                builtInValues.add(object.value);
+            }
+            return true;
+        }
+
+        // If the quad contains wildcards (a variable or an blank nodes) and
+        // we have previous bindings then we need to substitute these bindings
+        // and try to find new bindings...
         if (hasWildcard(q) && bindings.length != 0) {
-            // Try all possible bindings
+            // Filter our the bindings that clash with new found bindings...
             bindings = bindings.filter( binding => {
                 let _subject;
                 let _predicate;
                 let _object;
 
+                // Result will decide if we need to delete a previous
+                // binding that doesn't match given then new quad...
                 let result = true;
 
+                // Fill out the subject binding variable or blank node
                 if (isVariableOrBlank(subject)) {
                     _subject = subject.value in binding ?
                                  binding[ subject.value ] :
@@ -69,6 +90,7 @@ function shakeGraph(store,graph) {
                     _subject = subject;
                 }
 
+                // Fill out the predicate binding variable
                 if (isVariable(predicate)) {
                     _predicate = predicate.value in binding ?
                                  binding[ predicate.value ] :
@@ -78,6 +100,7 @@ function shakeGraph(store,graph) {
                     _predicate = predicate;
                 }
 
+                // Fill out the object binding variable
                 if (isVariable(object)) {
                     _object = object.value in binding ?
                                  binding[ object.value ] :
@@ -87,16 +110,44 @@ function shakeGraph(store,graph) {
                     _object = object;
                 }
 
-                const match = collect(store,_subject,_predicate,_object);
+                // Match is the new binding
+                let match;
 
+                // Is the predicate a built-in? Add it to the buildInValues we should
+                // ignore for now and calculate the true value of the builtIn predicate
+                if (isBuiltIn(_predicate.value)) {
+                    console.error(`${_predicate.value} is a built-in`);
+                    // Request to ignore these built-in sub-graphs
+                    if (isBlankNode(_subject)) {
+                        builtInValues.add(_subject.value);
+                    }
+                    if (isBlankNode(_object)) {
+                        builtInValues.add(_object.value);
+                    }
+                    matchCollector = BUILTIN; // An indicator we are dealing with a special built-in match
+                    return result = builtIn(_predicate.value,store,quad(
+                        _subject,
+                        _predicate,
+                        _object,
+                        graph
+                    ));
+                }
+                // Find new matches: undefined when nothing can be found
+                // otherwise an array of bindings (hashes)
+                else {
+                    match = collect(store,_subject,_predicate,_object);
+                }
+
+                // Nothing can be found..this binding can't be correct
+                // remove it...
                 if (match === undefined) {
-                    console.log(q);
                     console.error('Match is undefined');
+                    console.log(q);
                     // No results found
                     result = false;
                 }
+                // We found new bindings, append them to the rest
                 else {
-                    // Append them to the other results
                     match.forEach( item => {
                         if (matchCollector === undefined) {
                             matchCollector = [item];
@@ -111,7 +162,8 @@ function shakeGraph(store,graph) {
             });
         }
         else {
-            // Keep 
+            // No previous binding exists, find the first binding
+            // or undefined when the triple can't be found
             matchCollector = collect(store,subject,predicate,object);
         }
 
@@ -120,6 +172,11 @@ function shakeGraph(store,graph) {
         if (matchCollector === undefined) {
             console.error('No matches found');
             return false;
+        }
+
+        // If we have a built-in then we can assume the processing is already done
+        if (matchCollector === BUILTIN) {
+            return true;
         }
 
         // We were given a variable but didn't find a match...
@@ -156,21 +213,21 @@ function shakeGraph(store,graph) {
     }
 }
 
-function dynamic(url,store,quad) {
-    if (! isDynamic(url)) {
+function builtIn(url,store,quad) {
+    if (! isBuiltIn(url) ) {
         return undefined;
     }
     else {
-        return DYNAMICS[url](store,quad);
+        return BUILTINS[url](store,quad);
     }
 }
 
-function isDynamic(url) {
-    return url in DYNAMICS;
+function isBuiltIn(url) {
+    return url in BUILTINS;
 }
 
-function hasDynamic(quad) {
-    return isDynamic(quad.predicate);
+function hasBuiltIn(quad) {
+    return isBuiltIn(quad.predicate);
 }
 
 function hasWildcard(quad) {
@@ -184,11 +241,11 @@ function isVariableOrBlank(term) {
 }
 
 function isVariable(term) {
-    return term.termType === 'Variable';
+    return (typeof term !== 'undefined') && term.termType === 'Variable';
 }
 
 function isBlankNode(term) {
-    return term.termType === 'BlankNode';
+    return (typeof term !== 'undefined') && term.termType === 'BlankNode';
 }
 
 function collect(store,subject,predicate,object,graph) {
@@ -236,6 +293,15 @@ function collect(store,subject,predicate,object,graph) {
 }
 
 function list_in(store,quad) {
-    console.log('hi');
-    return [{}];
+    const match = store.getQuads(
+            undefined ,
+            undefined,
+            quad.subject,
+            quad.graph
+        );
+    return match.length > 0;
+}
+
+function list_length(store,quad) {
+    return true;
 }
