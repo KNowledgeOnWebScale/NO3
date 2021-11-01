@@ -38,11 +38,106 @@ async function parse(N3String) {
 async function doit(path) {
     const N3String = fs.readFileSync(path, { encoding: "utf8", flag: "r" });
     const store = await parse(N3String);
-    store.forEach( (quad) => {
+    store.forEach( (q) => {
         console.log('-------');
-        const res1 = shakeGraph(store,quad.subject);
-        console.log(res1);
+        // const res1 = shakeGraph(store,quad.subject);
+        parseRules(store,quad(undefined,undefined,undefined,q.subject));
+        // console.log(res1);
     }, undefined, namedNode('http://www.w3.org/2000/10/swap/log#implies'),undefined, undefined);
+}
+
+function parseRules(store,quadShape) {
+    const quads = store.getQuads(quadShape.subject, quadShape.predicate, quadShape.object, quadShape.graph);
+
+    let next;
+    do {
+        next = nextQuad(quads);
+        console.log(next);
+    } while (next.length > 0);
+}
+
+function nextQuad(quads) {
+    if (quads.length == 0) {
+        return [];
+    }
+
+    const accumulator = [];
+    const q = quads.shift();
+
+    if (isVariable(q.subject)) {
+        accumulator.push(q);
+        const r = nextQuadPeek(quads,q.object);
+        r.forEach( item => accumulator.push(item));
+
+        return accumulator;
+    }
+    else if (isNamedNode(q.subject)) {
+        accumulator.push(q);
+        const r = nextQuadPeek(quads,q.object);
+        r.forEach( item => accumulator.push(item));
+
+        return accumulator;
+    }
+    else {
+        if (! isBlankNode(q.subject)) {
+            throw new Error(`unknown term ${q.subject}`);
+        }
+    }
+
+    // Handling blank nodes
+    accumulator.push(q);
+
+    const rs = nextQuadPeek(quads,q.subject);
+    rs.forEach(item => accumulator.push(item));
+
+    const ro = nextQuadPeek(quads,q.object);
+    ro.forEach(item => accumulator.push(item));
+
+    rs.forEach( item => {
+        const index = quads.findIndex( q => q == item );
+        quads.splice(index,1);
+    });
+
+    ro.forEach( item => {
+        const index = quads.findIndex( q => q == item );
+        quads.splice(index,1);
+    });
+
+    return accumulator;
+}
+
+function nextQuadPeek(quads,term) {
+    const accumulator = [];
+
+    if (quads.length == 0) {
+        return [];
+    }
+
+    if (isVariable(term)) {
+        return [];
+    }
+    else if (isLiteral(term)) {
+        return [];
+    }
+    else if (isNamedNode(term)) {
+        return [];
+    }
+    else {
+        if (! isBlankNode(term)) {
+            throw new Error(`unknown term ${term}`);
+        }
+    }
+
+    quads.forEach( item => {
+        if (item.subject.id === term.id) {
+            accumulator.push(item);
+        }
+        if (item.object.id === term.id) {
+            accumulator.push(item);
+        }
+    });
+
+    return accumulator;
 }
 
 function shakeGraph(store,graph) {
@@ -222,10 +317,6 @@ function builtIn(url,store,quad) {
     }
 }
 
-function isBuiltIn(url) {
-    return url in BUILTINS;
-}
-
 function hasBuiltIn(quad) {
     return isBuiltIn(quad.predicate);
 }
@@ -236,8 +327,20 @@ function hasWildcard(quad) {
            isVariable(quad.object);
 }
 
+function isBuiltIn(url) {
+    return url in BUILTINS;
+}
+
 function isVariableOrBlank(term) {
     return isVariable(term) || isBlankNode(term);
+}
+
+function isNamedNode(term) {
+    return (typeof term !== 'undefined') && term.termType === 'NamedNode';
+}
+
+function isLiteral(term) {
+    return (typeof term !== 'undefined') && term.termType === 'Literal';
 }
 
 function isVariable(term) {
