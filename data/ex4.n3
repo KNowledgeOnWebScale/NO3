@@ -1,0 +1,14 @@
+PREFIX : <http://www.example.org/>
+
+:Alice :knows :Bob.
+:Bob :knows :Charly.
+:Charly :knows :Dylan.
+:Dylan :knows :Alice.
+
+{ 
+    ?s :knows [ :knows [ :knows :Alice ] ] .
+}
+=>
+{
+    ?s :loves :Pizza .
+}.

@@ -1,0 +1,27 @@
+:socrates a :Mortal .
+
+{ 
+    ?subject a :Mortal .
+    ?subject a :Alive .
+}
+=> 
+{
+    ?subject :livesOn :Earth .
+} .
+
+{ 
+    ?subject a :Mortal .
+    ?subject a :Dead .
+}
+=> 
+{
+    ?subject :livedOn :Earth .
+} .
+
+{
+    :socrates a :Dead.
+}
+<=
+{
+    :socrates ?p ?o . 
+} .

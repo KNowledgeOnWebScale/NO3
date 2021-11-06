@@ -1,0 +1,38 @@
+PREFIX : <urn:x:> 
+
+:Fitz :does :croak .
+:Fitz :eats :flies .
+
+{ 
+    ?x :does :croak .
+    ?x :eats :flies .
+}
+=>
+{
+    ?x a :Frog .
+} .
+
+{
+    ?x :does :chirps .
+    ?x :eats :worms .
+}
+=>
+{
+    ?X a :Canary. 
+} .
+
+{
+    ?x a :Frog .
+}
+=>
+{
+    ?x a :Green .
+}.
+
+{
+    ?x a :Canary .
+}
+=>
+{
+    ?x a :Yellow .
+}.

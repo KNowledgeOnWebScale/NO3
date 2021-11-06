@@ -8,10 +8,9 @@ PREFIX dc: <http://dubline.core.test/#>
 :Wine :loves :Bob .
 
 {
-    (:Alice :Bob) list:length 2 .
-    (:Alice :Bob) a :bar .
+    ?a :loves ?b .
 }
 => 
 {
-    ?b :loves :a .
+    ?b :loves :Cheeeese .
 }.

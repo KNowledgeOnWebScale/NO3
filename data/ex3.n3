@@ -1,0 +1,31 @@
+PREFIX : <http://www.example.org/>
+PREFIX log: <http://www.w3.org/2000/10/swap/log#> 
+
+:Socrates a :Mortal .
+:Mortal :eats :Fish .
+:Mortal :eats :Chicken .
+
+:Harry a :Mortal .
+:Harry :eats :Pizza .
+
+:Fish :livesIn :Water .
+:Fish :livesIn :Sea .
+
+:Chicken :livesIn :Land .
+
+{
+    ?subject a [ :eats :Fish ] .
+    ?subject :eats :Pizza .
+}
+=>
+{
+    ?subject :livesIn :Cave.
+}.
+
+{ 
+    ?G log:implies { ?subject :livesIn ?somwehere } .
+}
+=> 
+{
+    :I :Have :WeirdRules.
+}.
