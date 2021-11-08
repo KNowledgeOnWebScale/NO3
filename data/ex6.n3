@@ -1,14 +1,20 @@
 @prefix : <http://example.org/ex#>.
 
-:Fritz :is :pretty .
-:Mona :thinks { :Fritz :is :pretty }.
-:Liza :thinks { :Bob :is :pretty }.
-:Fitz :thinks { :Mona :is :pretty }.
+:Alice :likes :food.
+:Bob  :likes :food.
 
 {
-    _:x :thinks {?y :is :pretty}.
+    ?subject :likes ?object. 
+}
+=>   
+{
+    ?object :isLikedBy ?subject.
+} .
+
+{
+    [] :isLikedBy :Bob .
 }
 =>
 {
-    ?y :is :happy .
+    :Bob :isOn :Diet.
 }.

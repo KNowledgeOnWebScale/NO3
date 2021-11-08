@@ -13,8 +13,9 @@ c:Mouse c:knows ( c:Paul c:Dave ) .
         
 { 
     ?id a ?animal.
+    ?animal c:drinks "wine" .
 }         
 => 
 {
-    ?s c:say "Meow".
+    ?id c:say "Meow".
 }.

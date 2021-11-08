@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@comunica/actor-init-sparql": "^1.22.3",
+    "@comunica/actor-init-sparql-rdfjs": "^1.22.3",
     "n3": "^1.11.1"
   },
   "devDependencies": {
