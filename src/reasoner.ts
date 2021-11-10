@@ -12,12 +12,10 @@ export async function reasoner(store: N3.Store, implicator: N3.Quad[][], implica
 
     const sparql        = statementsAsSPARQL(implicator,quantifierMap);
 
-    console.error(sparql);
+    console.info(sparql);
 
     const bindings      = await sparqlQuery(sparql,store);
     const production    = new N3.Store(); 
-
-    console.error(`got: ${bindings.length} results`);
 
     if (bindings.length == 0) {
         return production;
@@ -87,19 +85,29 @@ export async function parse(path: string) {
                             null, 
                             N3.DataFactory.defaultGraph()
     );
-   
-    for (const quad of impliesQuads) {
-        const implicator   = parseStatements(workStore, null, null, null, quad.subject);
-        const implications = parseStatements(workStore, null, null, null, quad.object);
+  
+    let totalResult = 0;
 
-        const tmpStore     = await reasoner(workStore,implicator,implications);
+    do {
+        for (const quad of impliesQuads) {
+            const implicator   = parseStatements(workStore, null, null, null, quad.subject);
+            const implications = parseStatements(workStore, null, null, null, quad.object);
 
-        // Add the result to the workStore
-        tmpStore.forEach( quad => {
-            workStore.add(quad);
-            production.add(quad);
-        },null,null,null,N3.DataFactory.defaultGraph());
-    }
+            const tmpStore     = await reasoner(workStore,implicator,implications);
+
+            totalResult += tmpStore.size - production.size;
+
+            console.info(`Got: ${tmpStore.size} quads`);
+
+            // Add the result to the workStore
+            tmpStore.forEach( quad => {
+                workStore.add(quad);
+                production.add(quad);
+            },null,null,null,N3.DataFactory.defaultGraph());
+        }
+
+        console.info(`Total: ${totalResult} new quads`);
+    } while (totalResult != 0);
 
     return production;
 }

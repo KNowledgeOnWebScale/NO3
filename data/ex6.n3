@@ -4,6 +4,14 @@
 :Bob  :likes :food.
 
 {
+    [] :isLikedBy :Bob .
+}
+=>
+{
+    :Bob :isOn :Diet.
+}.
+
+{
     ?subject :likes ?object. 
 }
 =>   
@@ -11,10 +19,3 @@
     ?object :isLikedBy ?subject.
 } .
 
-{
-    [] :isLikedBy :Bob .
-}
-=>
-{
-    :Bob :isOn :Diet.
-}.

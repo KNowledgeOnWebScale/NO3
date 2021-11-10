@@ -156,41 +156,34 @@ function nextStatementFollow(quads: N3.Quad[], term: N3.Term) : N3.Quad[] {
 
 // Translates statements into a SPARQL query
 export function statementsAsSPARQL(statements: N3.Quad[][],quantifierMap: Map<string,string> = new Map<string,string>()) : string {
-    const sparql = 'SELECT * {' + statements.map( s => statementSExpression(s, quantifierMap, false) ).join("\n") + '}';
+    let counterMap : Map<string,number> = new Map<string,number>();
+    counterMap.set('quantifierCounter',0);
+    counterMap.set('skolemCounter',0);
+    const sparql = 'SELECT * {' + 
+                    statements.map( s => statementSExpression(s, quantifierMap, counterMap) ).join("\n") + 
+                   '}';
     return sparql;
 }
 
 // Translate a statement (array of quads[]) to a SPARQL S-Expression.
 // The quantifierMap is a local mapping of extentials and universals to S-Expression variables
-function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string> = new Map<string,string>(), isImplication: boolean = false) : string {
+function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string>, counterMap: Map<string,number>) : string {
     // TODO this is wrong and needs to be set outside this function
-    let quantifierCounter = 0;
-    let skolemCounter = 0;
+    let quantifierCounter = counterMap.get('quantifierCounter') || 0;
+    let skolemCounter     = counterMap.get('skolemCounter') || 0;
 
     const sexpressionPart = (term: N3.Term) => {
         if (N3.Util.isNamedNode(term)) {
             return `<${term.value}>`;
         }
         else if (N3.Util.isBlankNode(term)) {
-            if (isImplication) {
-                if (quantifierMap.has(term.value)) {
-                    // We are ok
-                }
-                else {
-                    quantifierMap.set(term.value, '_:sk_' + (skolemCounter++));
-                }
-
-                return quantifierMap.get(term.value);
+            if (quantifierMap.has(term.value)) {
+                // We are ok
             }
             else {
-                if (quantifierMap.has(term.value)) {
-                    // We are ok
-                }
-                else {
-                    quantifierMap.set(term.value,'?U_' + (quantifierCounter++));
-                }
-                return quantifierMap.get(term.value); 
+                quantifierMap.set(term.value,'?U_' + (quantifierCounter++));
             }
+            return quantifierMap.get(term.value); 
         }
         else if (N3.Util.isVariable(term)) {
             if (quantifierMap.has(term.value)) {
@@ -206,6 +199,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
             return `"${term.value}"`;
         }
     };
+
     const parts: string[] = quads.map( quad => {
         let str = "";
 
@@ -218,6 +212,9 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
 
         return str;
     });
+
+    counterMap.set('quantifierCounter',quantifierCounter);
+    counterMap.set('skolemCounter',skolemCounter);
 
     const sparqlQuery = parts.join("\n");
 
