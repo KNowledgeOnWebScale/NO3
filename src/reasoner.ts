@@ -59,6 +59,10 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
 
     // Return true when a blank node is already bound in the formula...
     const isBoundBlank = (binding: Bindings, term: N3.Term) => {
+        if (! N3.Util.isBlankNode(term)) {
+            return false;
+        }
+        
         const testTerm = implicationsMap.get(term.value);
 
         if (! testTerm ) {
@@ -377,8 +381,6 @@ function nextStatementFollow(quads: N3.Quad[], term: N3.Term) : N3.Quad[] {
 
     // Loop over all quads and find the matching blank nodes
     quads.forEach( quad => {
-        // console.log(`${quad.subject.id} ${quad.predicate.id} ${quad.object.id}`);
-
         if ( N3.Util.isBlankNode(quad.subject) && quad.subject.id === term.id) {
             accumulator.push(quad);
             followQuad.push(quad);
