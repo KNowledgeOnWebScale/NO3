@@ -1,0 +1,7 @@
+@prefix : <urn:x:>.
+
+:Mika a :Cat .
+:Akita a :Cat .
+:Luna a :Cat .
+
+{ ?X a :Cat .} => { [ :is :CatFriendly ] . }.

@@ -3,11 +3,11 @@
 :Hank :loves :Pizza.
 
 {
-   ?s :loves ?o .
+    ?s :loves ?o .
 }
 => 
 {
-   ?o :isLovedBy ?s .
+    ?o :isLovedBy ?s .
 }.
 
 {

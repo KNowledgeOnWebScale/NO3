@@ -1,0 +1,10 @@
+@prefix : <urn:x:>.
+
+:Cat a [
+        a :Class;
+        :ex 123
+        ].
+
+{ :Cat a ?X. } => { ?X a :Bear }.
+
+{ ?X a :Bear } => { ?X :is [ a :Hairy ] }.

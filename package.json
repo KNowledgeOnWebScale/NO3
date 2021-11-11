@@ -11,6 +11,7 @@
   "dependencies": {
     "@comunica/actor-init-sparql": "^1.22.3",
     "@comunica/actor-init-sparql-rdfjs": "^1.22.3",
+    "js-sha256": "^0.9.0",
     "n3": "^1.11.1"
   },
   "devDependencies": {

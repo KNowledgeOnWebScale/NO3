@@ -1,7 +1,5 @@
 import * as fs from 'fs';
-import * as N3 from 'n3';
-import { parse } from './reasoner';
-import { store2string } from './util';
+import { parseN3, think, store2string } from './reasoner';
 
 if (process.argv.length != 3) {
     console.error("usage: demo.js data.n3");
@@ -11,7 +9,10 @@ if (process.argv.length != 3) {
 doit(process.argv[2]);
 
 async function doit(path: string) {
-    const store = await parse(path);
-    const str = await store2string(store);
+    const n3String = fs.readFileSync(path, { encoding: "utf8", flag: "r" });
+    const n3Store  = await parseN3(n3String);
+    const inferred = await think(n3Store);
+
+    const str = await store2string(inferred);
     console.log(str); 
 }
