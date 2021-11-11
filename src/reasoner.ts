@@ -9,7 +9,7 @@ interface Rule {
         sparql: string;
         map: Map<string, string>;
         statements: N3.Quad[][];
-     };
+    };
     implications: {
         sparql: string;
         map: Map<string, string>;
@@ -24,6 +24,7 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
     const production = new N3.Store(); 
 
     console.info(rule.implicator.sparql);
+    console.info(`  ${rule.implications.sparql}`);
 
     // Calculate the bindings for the SPARQL
     const bindings      = await sparqlQuery(rule.implicator.sparql,store);
@@ -38,12 +39,61 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
 
     const currentBlankNodeMap = new Map<string,string>();
 
+    // Return the bound term or null...
+    const boundTerm = (binding: Bindings, term: N3.Term) => {
+        if (implicatorMap.has(term.value)) {
+            const key = <string> implicatorMap.get(term.value);
+            const nextTerm =  <N3.Term> binding.get(key); 
+            // See later..why unSkolemized is required...
+            if (N3.Util.isBlankNode(nextTerm)) {
+                return N3.DataFactory.blankNode(unSkolemizedValue(nextTerm));
+            }
+            else {
+                return nextTerm;
+            }
+        }
+        else {
+            return null;
+        }
+    };
+
+    // Return true when a blank node is already bound in the formula...
+    const isBoundBlank = (binding: Bindings, term: N3.Term) => {
+        const testTerm = implicationsMap.get(term.value);
+
+        if (! testTerm ) {
+            return false;
+        }
+
+        return implications.some( st => {
+            return st.some( q => {
+                const subjectBound   = boundTerm(binding,q.subject);
+                const predicateBound = boundTerm(binding,q.predicate);
+                const objectBound    = boundTerm(binding,q.object);
+
+                if (subjectBound != null && N3.Util.isBlankNode(subjectBound) && subjectBound.value === testTerm) {
+                    return true;
+                }
+
+                if (predicateBound != null && N3.Util.isBlankNode(predicateBound) && predicateBound.value === testTerm) {
+                    return true;
+                }
+
+                if (objectBound != null && N3.Util.isBlankNode(objectBound) && objectBound.value === testTerm) {
+                    return true;
+                }
+
+                return false;
+            });
+        });
+    };
+
     const bindTerm = (binding:Bindings, term:N3.Term) => {
         let nextTerm : N3.Term;
 
         // Option 1. Does the term match a binding key?
         if (implicatorMap.has(term.value)) {
-            console.debug("bind 1>");
+            console.debug(`bind 1> ${term.value}`);
             const key = <string> implicatorMap.get(term.value);
             nextTerm = <N3.Term> binding.get(key); 
         }
@@ -51,26 +101,26 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
         else if (N3.Util.isBlankNode(term)) {
             // Option 2a. In a previous run of this rule, we already saw this blank
             // node, reuse the :sk_N blank node
-            if (implicationsMap.has(term.value)) {
-                console.debug("bind 2a>");
+            if (!isBoundBlank(binding,term) && implicationsMap.has(term.value)) {
+                console.debug(`bind 2a> ${term.value}`);
                 nextTerm = N3.DataFactory.blankNode(implicationsMap.get(term.value)); 
             }
             // Option 2b. For the current rule, the current run, we already saw
             // this blank node, reuse the :sk_N blank node
             else if (currentBlankNodeMap.has(term.value)) {
-                console.debug("bind 2b>");
+                console.debug(`bind 2b> ${term.value}`);
                 nextTerm = N3.DataFactory.blankNode(currentBlankNodeMap.get(term.value));
             }
             // Option 2c. We never saw this blank node, translate it to a new :sk_N blank node
             else {
-                console.debug("bind 2c>");
+                console.debug(`bind 2c> ${term.value}`);
                 nextTerm = nextSkolem();
                 currentBlankNodeMap.set(term.value,nextTerm.value);
             }
         }
         // Option 3.
         else {
-            console.debug("bind 3>");
+            console.debug(`bind 3> ${term.value}`);
             nextTerm = term; 
         }
 
