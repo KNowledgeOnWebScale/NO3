@@ -2,6 +2,7 @@ import * as N3 from 'n3';
 import * as RDF from "@rdfjs/types";
 import { sha256 } from 'js-sha256';
 import { sparqlQuery, unSkolemizedValue } from './sparql';
+import { Bindings } from '@comunica/types';
 
 interface Rule {
     implicator: {
@@ -37,6 +38,52 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
 
     const currentBlankNodeMap = new Map<string,string>();
 
+    const bindTerm = (binding:Bindings, term:N3.Term) => {
+        let nextTerm : N3.Term;
+
+        // Option 1. Does the term match a binding key?
+        if (implicatorMap.has(term.value)) {
+            console.debug("bind 1>");
+            const key = <string> implicatorMap.get(term.value);
+            nextTerm = <N3.Term> binding.get(key); 
+        }
+        // Option 2. Is term a blank node?
+        else if (N3.Util.isBlankNode(term)) {
+            // Option 2a. In a previous run of this rule, we already saw this blank
+            // node, reuse the :sk_N blank node
+            if (implicationsMap.has(term.value)) {
+                console.debug("bind 2a>");
+                nextTerm = N3.DataFactory.blankNode(implicationsMap.get(term.value)); 
+            }
+            // Option 2b. For the current rule, the current run, we already saw
+            // this blank node, reuse the :sk_N blank node
+            else if (currentBlankNodeMap.has(term.value)) {
+                console.debug("bind 2b>");
+                nextTerm = N3.DataFactory.blankNode(currentBlankNodeMap.get(term.value));
+            }
+            // Option 2c. We never saw this blank node, translate it to a new :sk_N blank node
+            else {
+                console.debug("bind 2c>");
+                nextTerm = nextSkolem();
+                currentBlankNodeMap.set(term.value,nextTerm.value);
+            }
+        }
+        // Option 3.
+        else {
+            console.debug("bind 3>");
+            nextTerm = term; 
+        }
+
+        // SPARQL 1.1. requires blank nodes to be skolemized over different scopes
+        // This we have to undo to be able to reason about existing blank nodes...
+        if (N3.Util.isBlankNode(nextTerm)) {
+            return N3.DataFactory.blankNode(unSkolemizedValue(nextTerm));
+        }
+        else {
+            return nextTerm;
+        }
+    };
+
     bindings.forEach( binding => {
         implications.forEach( st => {
             st.forEach( q  => {
@@ -44,74 +91,11 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
                 let predicate : N3.Term;
                 let object : N3.Term;
 
-                if (implicatorMap.has(q.subject.value)) {
-                    const key = <string> implicatorMap.get(q.subject.value);
-                    subject = <N3.Term> binding.get(key);
-                } 
-                else if (implicationsMap.has(q.subject.value)) {
-                    subject = N3.DataFactory.blankNode(implicationsMap.get(q.subject.value)); 
-                }
-                else if (currentBlankNodeMap.has(q.subject.value)) {
-                    subject = N3.DataFactory.blankNode(currentBlankNodeMap.get(q.subject.value));
-                }
-                else if (N3.Util.isBlankNode(q.subject)) {
-                    subject = nextSkolem();
-                    currentBlankNodeMap.set(q.subject.value,subject.value);
-                }
-                else {
-                    subject = q.subject;
-                }
-
-                if (implicatorMap.has(q.predicate.value)) {
-                    const key = <string> implicatorMap.get(q.predicate.value);
-                    predicate = <N3.Term> binding.get(key);
-                } 
-                else if (implicationsMap.has(q.predicate.value)) {
-                    predicate = N3.DataFactory.blankNode(implicationsMap.get(q.predicate.value)); 
-                }
-                else if (currentBlankNodeMap.has(q.predicate.value)) {
-                    predicate = N3.DataFactory.blankNode(currentBlankNodeMap.get(q.predicate.value));
-                }
-                else if (N3.Util.isBlankNode(q.predicate)) {
-                    predicate = nextSkolem();
-                    currentBlankNodeMap.set(q.predicate.value,predicate.value);
-                }
-                else {
-                    predicate = q.predicate;
-                } 
-
-                if (implicatorMap.has(q.object.value)) {
-                    const key = <string> implicatorMap.get(q.object.value);
-                    const val = binding.get(key);
-                    object = <N3.Term> binding.get(key);
-                } 
-                else if (implicationsMap.has(q.object.value)) {
-                    object = N3.DataFactory.blankNode(implicationsMap.get(q.object.value)); 
-                }
-                else if (currentBlankNodeMap.has(q.object.value)) {
-                    object = N3.DataFactory.blankNode(currentBlankNodeMap.get(q.object.value));
-                }
-                else if (N3.Util.isBlankNode(q.object)) {
-                    object = nextSkolem();
-                    currentBlankNodeMap.set(q.object.value,object.value);
-                }
-                else {
-                    object = q.object;
-                }
-
-                // SPARQL 1.1. requires blank nodes to be skolemized over different scopes
-                // This we have to undo to be able to reason about existing blank nodes...
-                if (N3.Util.isBlankNode(subject)) {
-                    subject = N3.DataFactory.blankNode(unSkolemizedValue(subject));
-                }
-
-                if (N3.Util.isBlankNode(predicate)) {
-                    predicate = N3.DataFactory.blankNode(unSkolemizedValue(predicate));
-                }
-
-                if (N3.Util.isBlankNode(object)) {
-                    object = N3.DataFactory.blankNode(unSkolemizedValue(object));
-                }
+                subject   = bindTerm(binding, q.subject);
+                predicate = bindTerm(binding, q.predicate);
+                object    = bindTerm(binding, q.object);
+     
+                console.debug(`bind => ${subject.value} ${predicate.value} ${object.value}`);
 
                 production.add(N3.DataFactory.quad(subject as RDF.Quad_Subject,
                                                   predicate as RDF.Quad_Predicate,
