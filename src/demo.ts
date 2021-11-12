@@ -1,5 +1,6 @@
 import * as fs from 'fs';
-import { parseN3, think, store2string } from './reasoner';
+import { parseN3 , store2string } from './parse';
+import { think } from './reasoner';
 
 if (process.argv.length != 3) {
     console.error("usage: demo.js data.n3");

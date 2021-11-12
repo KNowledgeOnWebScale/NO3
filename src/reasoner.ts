@@ -2,6 +2,7 @@ import * as N3 from 'n3';
 import * as RDF from "@rdfjs/types";
 import { sha256 } from 'js-sha256';
 import { sparqlQuery, unSkolemizedValue } from './sparql';
+import { parseStatements, store2string } from './parse';
 import { Bindings } from '@comunica/types';
 
 interface Rule {
@@ -20,7 +21,7 @@ interface Rule {
 // Calculate the log:implies for the current store with implicator the left branch of the implies and
 // implications the right branch of implies.
 // Returns a N3.Store with new generated triples
-export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> {
+export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
     const production = new N3.Store(); 
 
     console.info(rule.implicator.sparql);
@@ -118,7 +119,7 @@ export async function reasoner(store: N3.Store, rule: Rule) : Promise<N3.Store> 
             // Option 2c. We never saw this blank node, translate it to a new :sk_N blank node
             else {
                 console.debug(`bind 2c> ${term.value}`);
-                nextTerm = nextSkolem();
+                nextTerm = skolemitor();
                 currentBlankNodeMap.set(term.value,nextTerm.value);
             }
         }
@@ -220,7 +221,11 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
     // Store that holds the produced graphs
     const production = new N3.Store();
 
+    // An array of rules (the formulas in the graph)
     const rules = compileRules(store);
+
+    // A skolem generator 
+    const skolemitor = nextSkolem();
 
     let productionDelta    = 0;
     let prevProductionSize = production.size;
@@ -230,7 +235,7 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
     do {
         for (const rule of rules) {
             // Here we start calculating all the inferred quads..
-            const tmpStore     = await reasoner(workStore,rule);
+            const tmpStore     = await reasoner(workStore,rule,skolemitor);
 
             console.info(`Got: ${tmpStore.size} quads`);
 
@@ -254,173 +259,18 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
     return production;
 }
 
-// Parse a Notation3 string into a N3.Store
-export async function parseN3(N3String: string) : Promise<N3.Store> {
-    const parser = new N3.Parser({ format: 'Notation3' });
-    const store  = new N3.Store();    
-
-    parser.parse(N3String,
-        (error, quad, _prefixes) => {
-            if (quad) {
-                store.add(quad);
-            }
-            else {
-                // We are done with parsing
-            }
-
-            if (error) {
-                throw new Error(error.message);
-            }
-        });
-
-    return store;
-}
-
-// Parse all quads in a (sub)graph into an array of N3.Quad[] statements.
-// We will use these qauds to execute Notation3 built-ins.
-function parseStatements(store: N3.Store
-    , subject: N3.OTerm, predicate: N3.OTerm, object: N3.OTerm, graph: N3.OTerm) : N3.Quad[][] { 
-    const quads = store.getQuads(subject, predicate, object, graph);
-
-    let result: N3.Quad[][] = [];
-
-    let next: N3.Quad[];
-
-    do {
-        next = nextStatement(quads);
-        if (next.length > 0) {
-            result.push(next);
-        }
-    } while (next.length > 0);
-
-    return result;
-}
-
-// Part of parseStatments
-function nextStatement(quads: N3.Quad[]) : N3.Quad[] {
-    // We are done when there are no more quads..
-    if (quads.length == 0) {
-        return [];
-    }
-
-    const accumulator = [];
-
-    // Grab the first quad..and try to find the matching terms...
-    const q = quads.shift();
-
-    if (! q) {
-        // This should never happen
-        return [];
-    }
-    else if (N3.Util.isVariable(q.subject)) {
-        // Keep the variable..only need to find all blank nodes in the object (if there are any)
-        accumulator.push(q);
-
-        const r = nextStatementFollow(quads,q.object);
-        r.forEach( item => accumulator.push(item));
-
-        return accumulator;
-    }
-    else if (N3.Util.isNamedNode(q.subject)) {
-        // Keep the namedNode .. only need to find all blank nodes in the object (if there are any)
-        accumulator.push(q);
-
-        const r = nextStatementFollow(quads,q.object);
-        r.forEach( item => accumulator.push(item));
-
-        return accumulator;
-    }
-    else if (N3.Util.isLiteral(q.subject)) {
-        // Keep the literal .. only need to find all blank nodes in the object (it there are any)
-        accumulator.push(q);
-
-        const r = nextStatementFollow(quads,q.object);
-        r.forEach( item => accumulator.push(item));
-
-        return accumulator;
-    }
-    else {
-        // We have a blank node ...
-        accumulator.push(q);
-
-        // Follow all links in the subject for more blank nodes...
-        const rs = nextStatementFollow(quads,q.subject);
-        rs.forEach(item => accumulator.push(item));
-
-        // Follow all links in the object for more blank nodes...
-        const ro = nextStatementFollow(quads,q.object);
-        ro.forEach(item => accumulator.push(item));
-
-        return accumulator;
-    }
-}
-
-// Part of parseStatements.
-// Given a term find all the blank nodes linked to a term
-function nextStatementFollow(quads: N3.Quad[], term: N3.Term) : N3.Quad[] {
-    const accumulator : N3.Quad[] = [];
-
-    if (quads.length == 0) {
-        return [];
-    }
-
-    if (N3.Util.isVariable(term)) {
-        return [];
-    }
-    else if (N3.Util.isLiteral(term)) {
-        return [];
-    }
-    else if (N3.Util.isNamedNode(term)) {
-        return [];
-    }
-    else {
-        // We have a blank node
-    }
-
-    const followQuad : N3.Quad[] = [];
-
-    // Loop over all quads and find the matching blank nodes
-    quads.forEach( quad => {
-        if ( N3.Util.isBlankNode(quad.subject) && quad.subject.id === term.id) {
-            accumulator.push(quad);
-            followQuad.push(quad);
-        }
-        else if (N3.Util.isBlankNode(quad.object) && quad?.object.id === term.id) {
-            accumulator.push(quad);
-        }
-        else {
-            // No match found
-        }
-    });
-
-    // Remove the quads we just found from the quad array
-    accumulator.forEach( item => {
-        const index = quads.indexOf(item);
-        if (index > -1) {
-            quads.splice(index,1);
-        }
-    });
-
-    // Follow the quads we just found for more links
-    followQuad.forEach( quad  => {
-        const r = nextStatementFollow(quads,quad.object);
-        r.forEach( item => accumulator.push(item)); 
-    });
-
-    return accumulator;
-}
-
-// Translates statements into a SPARQL query
+// Translate the statements of one formula into a SPARQL query
 function statementsAsSPARQL(statements: N3.Quad[][],quantifierMap: Map<string,string> = new Map<string,string>()) : string {
+    const quantifier = nextQuantifier();
     const sparql = 'SELECT * {' + 
-                    statements.map( s => statementSExpression(s, quantifierMap) ).join("\n") + 
+                    statements.map( s => statementSExpression(s, quantifierMap, quantifier) ).join("\n") + 
                    '}';
     return sparql;
 }
 
 // Translate a statement (array of quads[]) to a SPARQL S-Expression.
 // The quantifierMap is a local mapping of extentials and universals to S-Expression variables
-function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string>) : string {
+function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string>, quantifier: () => N3.Term) : string {
 
     const sexpressionPart = (term: N3.Term) => {
         if (N3.Util.isNamedNode(term)) {
@@ -431,7 +281,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
                 // We are ok
             }
             else {
-                quantifierMap.set(term.value, '?' + nextQuantifier().value);
+                quantifierMap.set(term.value, '?' + quantifier().value);
             }
             return quantifierMap.get(term.value); 
         }
@@ -440,7 +290,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
                 // We are ok
             }
             else {
-                quantifierMap.set(term.value, '?' + nextQuantifier().value);
+                quantifierMap.set(term.value, '?' + quantifier().value);
             }
 
             return quantifierMap.get(term.value); 
@@ -472,34 +322,14 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
     return sparqlQuery;
 }
 
-// Given an N3.Store return an Notation3 string
-export async function store2string(store: N3.Store) : Promise<string> {
-    const writer = new N3.Writer();
-   
-    store.forEach( quad => {
-        writer.addQuad(quad);
-    }, null, null, null, null);  
-
-    return new Promise<string>( (resolve,reject) => {
-        writer.end((error,result) => {
-            if (error) {
-                reject(error);
-            }
-            else {
-                resolve(result);
-            }
-        });        
-    });
+function nextQuantifier() : () => N3.Term {
+    let quantifierCounter = 0;
+    return () => { return N3.DataFactory.variable('U_' + quantifierCounter++); };
 }
 
-let quantifierCounter = 0;
-function nextQuantifier() : N3.Term {
-    return N3.DataFactory.variable('U_' + quantifierCounter++);
-}
-
-let skolemCounter = 0;
-function nextSkolem() : N3.Term {
-    return N3.DataFactory.blankNode('sk_' + skolemCounter++);
+function nextSkolem() : () => N3.Term {
+    let skolemCounter = 0;
+    return () => { return N3.DataFactory.blankNode('sk_' + skolemCounter++); }
 }
 
 function make_skolem_namespace() : string {
