@@ -1,21 +1,7 @@
 @prefix : <http://example.org/ex#>.
 
-:Alice :likes :food.
-:Bob  :likes :food.
+:Hank :cooks :Soup .
 
-{
-    [] :isLikedBy :Bob .
-}
-=>
-{
-    :Bob :isOn :Diet.
-}.
+{ ?X :isCookedBy ?Y . } => { ?X :isOnMenuOf ?Y . }.
 
-{
-    ?subject :likes ?object. 
-}
-=>   
-{
-    ?object :isLikedBy ?subject.
-} .
-
+{ ?X :cooks ?Y. } => { ?Y :isCookedBy ?X . } .
