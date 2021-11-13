@@ -4,6 +4,9 @@ import { sha256 } from 'js-sha256';
 import { sparqlQuery, unSkolemizedValue } from './sparql';
 import { parseStatements, store2string } from './parse';
 import { Bindings } from '@comunica/types';
+import { getLogger } from "log4js";
+
+const logger = getLogger();
 
 interface Rule {
     implicator: {
@@ -24,8 +27,8 @@ interface Rule {
 export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
     const production = new N3.Store(); 
 
-    console.info(rule.implicator.sparql);
-    console.info(`  ${rule.implications.sparql}`);
+    logger.debug(rule.implicator.sparql);
+    logger.debug(`  ${rule.implications.sparql}`);
 
     // Calculate the bindings for the SPARQL
     const bindings      = await sparqlQuery(rule.implicator.sparql,store);
@@ -98,7 +101,7 @@ export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3
 
         // Option 1. Does the term match a binding key?
         if (implicatorMap.has(term.value)) {
-            console.debug(`bind 1> ${term.value}`);
+            logger.debug(`bind 1> ${term.value}`);
             const key = <string> implicatorMap.get(term.value);
             nextTerm = <N3.Term> binding.get(key); 
         }
@@ -107,25 +110,25 @@ export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3
             // Option 2a. In a previous run of this rule, we already saw this blank
             // node, reuse the :sk_N blank node
             if (!isBoundBlank(binding,term) && implicationsMap.has(term.value)) {
-                console.debug(`bind 2a> ${term.value}`);
+                logger.debug(`bind 2a> ${term.value}`);
                 nextTerm = N3.DataFactory.blankNode(implicationsMap.get(term.value)); 
             }
             // Option 2b. For the current rule, the current run, we already saw
             // this blank node, reuse the :sk_N blank node
             else if (currentBlankNodeMap.has(term.value)) {
-                console.debug(`bind 2b> ${term.value}`);
+                logger.debug(`bind 2b> ${term.value}`);
                 nextTerm = N3.DataFactory.blankNode(currentBlankNodeMap.get(term.value));
             }
             // Option 2c. We never saw this blank node, translate it to a new :sk_N blank node
             else {
-                console.debug(`bind 2c> ${term.value}`);
+                logger.debug(`bind 2c> ${term.value}`);
                 nextTerm = skolemitor();
                 currentBlankNodeMap.set(term.value,nextTerm.value);
             }
         }
         // Option 3.
         else {
-            console.debug(`bind 3> ${term.value}`);
+            logger.debug(`bind 3> ${term.value}`);
             nextTerm = term; 
         }
 
@@ -150,7 +153,7 @@ export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3
                 predicate = bindTerm(binding, q.predicate);
                 object    = bindTerm(binding, q.object);
      
-                console.debug(`bind => ${subject.value} ${predicate.value} ${object.value}`);
+                logger.debug(`bind => ${subject.value} ${predicate.value} ${object.value}`);
 
                 production.add(N3.DataFactory.quad(subject as RDF.Quad_Subject,
                                                   predicate as RDF.Quad_Predicate,
@@ -237,11 +240,15 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
             // Here we start calculating all the inferred quads..
             const tmpStore     = await reasoner(workStore,rule,skolemitor);
 
-            console.info(`Got: ${tmpStore.size} quads`);
+            logger.info(`Got: ${tmpStore.size} quads`);
 
-            const str = await store2string(tmpStore);
 
-            console.info(`===\n${str}\n---\n`);
+            if (logger.level == 'debug') {
+                const str = await store2string(tmpStore);
+                logger.debug('===');
+                logger.debug(str);
+                logger.debug('---');
+            }
 
             // Add the result to the workStore
             tmpStore.forEach( quad => {
@@ -253,7 +260,7 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
             prevProductionSize = production.size;
         }
 
-        console.info(`Total: ${productionDelta} new quads`);
+        logger.info(`Total: ${productionDelta} new quads`);
     } while (productionDelta != 0);
 
     return production;
@@ -299,7 +306,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
             return `"${term.value}"`;
         }
         else {
-            console.error(`Found an unknown term type ${term}`);
+            logger.error(`Found an unknown term type ${term}`);
             throw new Error(`Unknown term type`);
         }
     };
@@ -317,7 +324,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
         return str;
     });
 
-    const sparqlQuery = parts.join("\n");
+    const sparqlQuery = parts.join(" ");
 
     return sparqlQuery;
 }

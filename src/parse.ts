@@ -1,4 +1,7 @@
 import * as N3 from 'n3';
+import { getLogger } from "log4js";
+
+const logger = getLogger();
 
 export {
     parseN3,

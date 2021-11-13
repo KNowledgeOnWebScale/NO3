@@ -4,6 +4,9 @@ import { BlankNodeScoped } from '@comunica/data-factory';
 import { DataFactory } from 'rdf-data-factory';
 import type * as RDF from '@rdfjs/types';
 import * as N3 from 'n3';
+import { getLogger } from "log4js";
+
+const logger = getLogger();
 
 export async function sparqlQuery(query: string, store: N3.Store) {
     const myEngine = newEngine();
