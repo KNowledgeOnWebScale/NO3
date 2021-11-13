@@ -31,6 +31,7 @@ export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3
     logger.debug(`  ${rule.implications.sparql}`);
 
     // Calculate the bindings for the SPARQL
+    logger.info('execute sparql');
     const bindings      = await sparqlQuery(rule.implicator.sparql,store);
 
     if (bindings.length == 0) {
@@ -142,22 +143,25 @@ export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3
         }
     };
 
+    logger.info('bind all quantifiers');
     bindings.forEach( binding => {
         implications.forEach( st => {
             st.forEach( q  => {
                 let subject : N3.Term;
                 let predicate : N3.Term;
                 let object : N3.Term;
+                let graph : N3.Term;
 
                 subject   = bindTerm(binding, q.subject);
                 predicate = bindTerm(binding, q.predicate);
                 object    = bindTerm(binding, q.object);
-     
+
                 logger.debug(`bind => ${subject.value} ${predicate.value} ${object.value}`);
 
                 production.add(N3.DataFactory.quad(subject as RDF.Quad_Subject,
                                                   predicate as RDF.Quad_Predicate,
-                                                  object as RDF.Quad_Object));
+                                                  object as RDF.Quad_Object,
+                                              ));
             });
         });
     });
@@ -242,8 +246,7 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
 
             logger.info(`Got: ${tmpStore.size} quads`);
 
-
-            if (logger.level == 'debug') {
+            if ( logger.isDebugEnabled() ) {
                 const str = await store2string(tmpStore);
                 logger.debug('===');
                 logger.debug(str);

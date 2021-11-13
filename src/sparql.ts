@@ -7,11 +7,10 @@ import * as N3 from 'n3';
 import { getLogger } from "log4js";
 
 const logger = getLogger();
+const myEngine = newEngine();
 
 export async function sparqlQuery(query: string, store: N3.Store) {
-    const myEngine = newEngine();
     const result = <IQueryResultBindings> await myEngine.query(query, { sources: [store] });
-
     return result.bindings();
 }
 
