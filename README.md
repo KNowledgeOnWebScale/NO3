@@ -66,7 +66,7 @@ Results in (irrespective of order of formulas):
     :isOnMenuOf :Hank.
 ```
 
-Support for existential and univerval quantifiers.
+Support for existential and universal quantifiers.
 
 Given:
 
@@ -74,7 +74,10 @@ Given:
 :Hank :plays :Guitar.
 :Emily :plays :Piano.
 
-{ ?S :plays [] .  } => { ?S :canEnter :Recital. }.
+:Guitar a :MusicInstrument .
+:Piano a :MusicInstrument .
+
+{ ?S :plays [ a :MusicInstrument ] .  } => { ?S :canEnter :Recital. }.
 ```
 
 Results in:
