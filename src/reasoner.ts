@@ -218,13 +218,6 @@ function compileRules(store: N3.Store) : Rule[] {
 // Execute all the rules in the N3.Store and return a new N3.Store containing all
 // inferred quads
 export async function think(store: N3.Store) : Promise<N3.Store> {
-    // WorkStore contains a copy of the input data where we will add the produced graphs
-    const workStore = new N3.Store();
-
-    store.forEach( quad => {
-        workStore.add(quad);
-    }, null, null, null, null);
-
     // Store that holds the produced graphs
     const production = new N3.Store();
 
@@ -242,7 +235,7 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
     do {
         for (const rule of rules) {
             // Here we start calculating all the inferred quads..
-            const tmpStore     = await reasoner(workStore,rule,skolemitor);
+            const tmpStore     = await reasoner(store,rule,skolemitor);
 
             logger.info(`Got: ${tmpStore.size} quads`);
 
@@ -255,11 +248,11 @@ export async function think(store: N3.Store) : Promise<N3.Store> {
 
             // Add the result to the workStore
             tmpStore.forEach( quad => {
-                workStore.add(quad);
+                store.add(quad);
                 production.add(quad);
             },null,null,null,N3.DataFactory.defaultGraph());
 
-            productionDelta    =  production.size - prevProductionSize;
+            productionDelta    = production.size - prevProductionSize;
             prevProductionSize = production.size;
         }
 
