@@ -6,7 +6,11 @@ NO3 is a small forward-chaining reasoning engine for a subset of the [Notation3]
 
 All NO3 formulas need to be simple:
 
-- No nested formulas
+- No cited formulas
+- No paths
+- No backward-chaining `<=`
+- No owl:sameAs symbol `=`
+- Limited support for built-ins (at this moment NONE)
 
 A supported formula:
 
@@ -19,10 +23,6 @@ An unsupported formula:
 ```
 { ?X :says { ?X :cooks ?Y } } => { ?X :means { ?Y :isCookedBy ?X } } .
 ```
-
-A limited support for built-in:
-
-- At this moment built-in are in development
 
 NO3 does support simple inferences:
 
@@ -91,3 +91,11 @@ Results in:
 
 NO3 was developed to have basic Notation3 support in JavaScript for environments
 that don't require all features of a [CWM](https://github.com/sbp/cwm) or [EYE](https://josd.github.io/eye/) processor.
+
+## Naming
+
+NO3 read as Notation 0.3 (because the lack of features) and interpreted as the chemical compound 
+Nitrate (NO-3), which can be a fertilizer but also an explosive.
+
+This code was written for the Mellon Project "Scholarly Communication on the decentralized web" as
+a proof of concept.
