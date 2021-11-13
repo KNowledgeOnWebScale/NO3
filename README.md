@@ -2,6 +2,17 @@
 
 NO3 is a small forward-chaining inference engine for a subset of the [Notation3](https://w3c.github.io/N3/spec/) language.
 
+## SYNOPSIS
+
+```
+const parse    = require("../js/parse.js");
+const reasoner = require("../js/reasoner.js");
+
+const n3Store  = await parse.parseN3(n3String);
+const inferred = await reasoner.think(n3Store);
+const str      = await parse.store2string(inferred);
+```
+
 ## Notation3 support
 
 All NO3 formulas need to be simple:
