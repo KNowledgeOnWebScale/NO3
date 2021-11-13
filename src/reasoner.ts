@@ -6,6 +6,10 @@ import { parseStatements, store2string } from './parse';
 import { Bindings } from '@comunica/types';
 import { getLogger } from "log4js";
 
+export {
+    think
+};
+
 const logger = getLogger();
 
 interface Rule {
@@ -24,7 +28,7 @@ interface Rule {
 // Calculate the log:implies for the current store with implicator the left branch of the implies and
 // implications the right branch of implies.
 // Returns a N3.Store with new generated triples
-export async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
+async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
     const production = new N3.Store(); 
 
     logger.debug(rule.implicator.sparql);
@@ -217,7 +221,7 @@ function compileRules(store: N3.Store) : Rule[] {
 
 // Execute all the rules in the N3.Store and return a new N3.Store containing all
 // inferred quads
-export async function think(store: N3.Store) : Promise<N3.Store> {
+async function think(store: N3.Store) : Promise<N3.Store> {
     // Store that holds the produced graphs
     const production = new N3.Store();
 
