@@ -1,6 +1,6 @@
 # NO3 - A Notation3 inference engine
 
-NO3 is a small forward-chaining reasoning engine for a subset of the [Notation3](https://w3c.github.io/N3/spec/) language.
+NO3 is a small forward-chaining inference engine for a subset of the [Notation3](https://w3c.github.io/N3/spec/) language.
 
 ## Notation3 support
 
