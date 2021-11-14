@@ -1,0 +1,61 @@
+@prefix : <urn:x:>.
+
+# List matching is straight forward as expected 
+
+:Hank :likes :Cheese .
+:Hank :likes :Wine .
+
+:Hank :loves (:Cheese :Wine).
+
+:Hank :hates (:Sprouts (:Small [])).
+
+[] :bread :moz .
+
+{
+  :Hank :likes :Wine, :Cheese.
+}
+=>
+{
+  :Hank :likes :both1.
+}.
+
+{
+  :Hank :likes (:Cheese :Wine).
+}
+=>
+{
+  :Hank :likes :both2.
+}.
+
+{
+  :Hank :loves (:Cheese :Wine).
+}
+=>
+{
+  :Hank :loves :both2.
+}.
+
+{
+  :Hank :loves (:Wine :Cheese).
+}
+=>
+{
+  :Hank :loves :both3.
+}.
+
+{
+  :Hank :hates (:Sprouts (:Small :Big)).
+}
+=>
+{
+  :Hank :hates :both4.
+}.
+
+{
+  :Hank :hates (:Sprouts (:Small ?S)).
+}
+=>
+{
+  :Hank :hates ?S.
+  [] :is :ok.
+}.

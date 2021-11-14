@@ -1,0 +1,28 @@
+@prefix : <urn:x:>.
+
+:1234 a :Song.
+:1234 a :Hit.
+:1234 :title "Baby Back".
+:1234 :year 1998.
+
+:1235 a :Song.
+:1235 :title "Chilly".
+:1235 :year 2014.
+
+:Hank :says { :1234 :was :Great }.
+:Hank :says { :1235 :was :Great }.
+
+:Wendy :says { :1235 :was :Great }.
+
+:Brenda :says { :Wendy :says { :1234 :was :Great } } .
+:Harry :says { :Wendy :says { :1235 :was :Great } } .
+
+{ 
+    { :1234 a :Hit } <= { ?c a :Song } .
+}
+=>
+{
+    ?abc :oldie true.
+}.
+
+

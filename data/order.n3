@@ -1,0 +1,9 @@
+@prefix : <urn:x:>.
+
+:Hank :plays :Guitar.
+:Emily :plays :Piano.
+
+:Guitar a :MusicInstrument .
+:Piano a :MusicInstrument .
+
+{ ?S :plays [ a :MusicInstrument ] .  } => { ?S :canEnter :Recital. }.

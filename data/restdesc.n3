@@ -1,0 +1,20 @@
+@prefix : <urn:x:> .
+@prefix music: <http://example.org/music#>.
+@prefix http: <http://www.w3.org/2006/http#>.
+@prefix tmpl: <http://purl.org/restdesc/http-template#>.
+
+:oppa a music:Fragment.
+
+{ ?fragment a music:Fragment. }
+=>
+{
+  _:request http:methodName "GET";
+      tmpl:requestURI (?fragment "/song");
+      http:resp [ tmpl:represents ?song ].
+
+  ?fragment music:fragmentOf ?song.
+
+  ?song music:title _:title;
+        music:performedBy _:artist;
+        music:album _:album.
+}.
