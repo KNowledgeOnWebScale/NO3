@@ -1,0 +1,33 @@
+@prefix : <urn:x:>.
+
+_:x a :Composition ;
+    :creator :Beethoven ;
+    :isPlayedOn :Piano ;
+    :players 1 .
+
+_:y a :Composition ;
+    :creator :Davis ;
+    :isPlayedOn :Trumpet ;
+    :players 1.
+
+:Beethoven a :Composer ;
+    :from :Germany .
+
+:Piano a :Instrument .
+
+:Trumpet a :Instrument .
+
+{ _:x a :Composer . } => { _:x :extential :Tagged . } .
+
+{ ?x a :Composer . } => { _:x :universal :Tagged . } .
+
+{  [] a :Composition ; 
+    :creator ?X .    
+} => { ?X :hasComposed [] }.
+
+{ _:sk_0 a :Composition ;
+    :isPlayedOn ?X .
+} => { ?X :hasComposition _:sk_0 . } .
+
+# This needs a skolem
+{ ?X a :Composition . } => { ?X :universal ?Y } .
