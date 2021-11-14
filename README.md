@@ -106,7 +106,8 @@ that don't require all features of a [CWM](https://github.com/sbp/cwm) or [EYE](
 ## Naming
 
 NO3 read as Notation 0.3 (because the lack of features) and interpreted as the chemical compound 
-Nitrate (NO-3), which can be a fertilizer but also an explosive.
+Nitrate (NO-3), which can be a fertilizer but also an explosive (but because it is explosive fast,
+..actually it is very slow compared to EYE).
 
 This code was written for the Mellon Project "Scholarly Communication on the decentralized web" as
 a proof of concept.
