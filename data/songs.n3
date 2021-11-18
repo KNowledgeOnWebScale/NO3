@@ -18,11 +18,11 @@
 :Harry :says { :Wendy :says { :1235 :was :Great } } .
 
 { 
-    { :1234 a :Hit } <= { ?c a :Song } .
+    :1234 a :Hit .
 }
 =>
 {
-    ?abc :oldie true.
+    ?abc :oldie [ :brol ?abc].
 }.
 
 

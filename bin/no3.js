@@ -11,7 +11,7 @@ if (process.argv.length != 3) {
 }
 
 const logger = log4js.getLogger();
-logger.level = "fatal";
+logger.level = "debug";
 
 doit(process.argv[2]);
 
