@@ -1,17 +1,18 @@
 import * as N3 from 'n3';
-import { parseN3 , parseStatements, store2string} from "../src/parse";
+import { IParsedN3, parseN3 , parseStatements, store2string} from "../src/parse";
 
 describe("parseN3", () =>  {
   test("should return an N3.Store", async () => {
-      const store = await parseN3('<a> a <b> .');
-      expect(store).toBeInstanceOf(N3.Store);
+      const parsedN3 = await parseN3('<a> a <b> .');
+      expect(typeof parsedN3).toBeTruthy();
+      expect(parsedN3.store).toBeInstanceOf(N3.Store);
   });
 });
 
 describe("store2string", () => {
   test("should return a string", async () => {
-      const store = await parseN3('<a> a <b> .'); 
-      const str   = await store2string(store);
+      const parsedN3 = await parseN3('<a> a <b> .'); 
+      const str   = await store2string(parsedN3.store);
       expect(str).toMatch("<a> a <b>.");
   });
 });
@@ -92,7 +93,6 @@ describe("parseStatements", () =>  {
 });
 
 async function PS(n3:string) {
-    const store = await parseN3(n3);
-    const st    = parseStatements(store, null, null, null, null);  
-    return st;
+    const parsedN3 = await parseN3(n3);
+    return parseStatements(parsedN3.graphs['']);
 }

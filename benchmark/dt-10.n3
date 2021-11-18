@@ -1,0 +1,18 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX : <http://eulersharp.sourceforge.net/2009/12dtb/test#>
+PREFIX e: <http://eulersharp.sourceforge.net/2003/03swap/log-rules#>
+
+:z a :N0.
+
+{?U_0 a :N0} => {?U_0 a :N1}.
+{?U_1 a :N0} => {?U_1 a :I1}.
+{?U_2 a :N0} => {?U_2 a :J1}.
+{?U_3 a :N1} => {?U_3 a :N2}.
+{?U_4 a :N1} => {?U_4 a :I2}.
+{?U_5 a :N1} => {?U_5 a :J2}.
+{?U_6 a :N2} => {?U_6 a :N3}.
+{?U_7 a :N2} => {?U_7 a :I3}.
+{?U_8 a :N2} => {?U_8 a :J3}.
+{?U_9 a :N3} => {?U_9 a :N4}.
+{?U_10 a :N3} => {?U_10 a :I4}.

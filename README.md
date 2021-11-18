@@ -8,8 +8,8 @@ NO3 is a small forward-chaining inference engine for a subset of the [Notation3]
 const parse    = require("../js/parse.js");
 const reasoner = require("../js/reasoner.js");
 
-const n3Store  = await parse.parseN3(n3String);
-const inferred = await reasoner.think(n3Store);
+const parsedN3 = await parse.parseN3(n3String);
+const inferred = await reasoner.think(parsedN3);
 const str      = await parse.store2string(inferred);
 ```
 

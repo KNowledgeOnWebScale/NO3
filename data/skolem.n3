@@ -1,10 +1,14 @@
 @prefix : <urn:x:>.
 
 :Cat a [
-        a :Class;
-        :ex 123
+        a :Animal;
         ].
 
-{ :Cat a ?X. } => { ?X a :Bear }.
+# Bind blank node [ a Animal ] tp ?X
+{ :Cat a ?X. } => { ?X :contains :Felines }.
 
-{ ?X a :Bear } => { ?X :is [ a :Hairy ] }.
+# Bounded blank node will be skolemized in the output
+{ :Cat a ?Y. } => { ?Y :contains :HouseAnimals }.
+
+# Bounded blank node will be skolemized in the output
+{ ?Z :contains :Felines } => { ?Z :mayAlsoHave :Lions }.

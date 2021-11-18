@@ -1,8 +1,8 @@
 import * as N3 from 'n3';
 import * as RDF from "@rdfjs/types";
 import { sha256 } from 'js-sha256';
-import { sparqlQuery, unSkolemizedValue } from './sparql';
-import { parseStatements, store2string } from './parse';
+import { sparqlQuery } from './sparql';
+import { IParsedN3, parseStatements, store2string } from './parse';
 import { Bindings } from '@comunica/types';
 import { getLogger } from "log4js";
 
@@ -47,19 +47,14 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
     const implicationsMap = rule.implications.map;
 
     const currentBlankNodeMap = new Map<string,string>();
+    const currentVariableMap  = new Map<string,string>();
 
     // Return the bound term or null...
     const boundTerm = (binding: Bindings, term: N3.Term) => {
         if (implicatorMap.has(term.value)) {
             const key = <string> implicatorMap.get(term.value);
             const nextTerm =  <N3.Term> binding.get(key); 
-            // See later..why unSkolemized is required...
-            if (N3.Util.isBlankNode(nextTerm)) {
-                return N3.DataFactory.blankNode(unSkolemizedValue(nextTerm));
-            }
-            else {
-                return nextTerm;
-            }
+            return nextTerm;
         }
         else {
             return null;
@@ -67,8 +62,8 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
     };
 
     // Return true when a blank node is already bound in the formula...
-    const isBoundBlank = (binding: Bindings, term: N3.Term) => {
-        if (! N3.Util.isBlankNode(term)) {
+    const isBoundBlankOrVariable = (binding: Bindings, term: N3.Term) => {
+        if (! isBlankNodeOrVariable(term)) {
             return false;
         }
         
@@ -84,15 +79,15 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
                 const predicateBound = boundTerm(binding,q.predicate);
                 const objectBound    = boundTerm(binding,q.object);
 
-                if (subjectBound != null && N3.Util.isBlankNode(subjectBound) && subjectBound.value === testTerm) {
+                if (subjectBound != null && isBlankNodeOrVariable(subjectBound) && subjectBound.value === testTerm) {
                     return true;
                 }
 
-                if (predicateBound != null && N3.Util.isBlankNode(predicateBound) && predicateBound.value === testTerm) {
+                if (predicateBound != null && isBlankNodeOrVariable(predicateBound) && predicateBound.value === testTerm) {
                     return true;
                 }
 
-                if (objectBound != null && N3.Util.isBlankNode(objectBound) && objectBound.value === testTerm) {
+                if (objectBound != null && isBlankNodeOrVariable(objectBound) && objectBound.value === testTerm) {
                     return true;
                 }
 
@@ -110,11 +105,12 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
             const key = <string> implicatorMap.get(term.value);
             nextTerm = <N3.Term> binding.get(key); 
         }
-        // Option 2. Is term a blank node?
-        else if (N3.Util.isBlankNode(term)) {
+        // Option 2. Is term a blank node or a unbound variable?
+        //           (unbound variables we treat as blank nodes)
+        else if (isBlankNodeOrVariable(term)) {
             // Option 2a. In a previous run of this rule, we already saw this blank
             // node, reuse the :sk_N blank node
-            if (!isBoundBlank(binding,term) && implicationsMap.has(term.value)) {
+            if (!isBoundBlankOrVariable(binding,term) && implicationsMap.has(term.value)) {
                 logger.debug(`bind 2a> ${term.value}`);
                 nextTerm = N3.DataFactory.blankNode(implicationsMap.get(term.value)); 
             }
@@ -137,14 +133,7 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
             nextTerm = term; 
         }
 
-        // SPARQL 1.1. requires blank nodes to be skolemized over different scopes
-        // This we have to undo to be able to reason about existing blank nodes...
-        if (N3.Util.isBlankNode(nextTerm)) {
-            return N3.DataFactory.blankNode(unSkolemizedValue(nextTerm));
-        }
-        else {
-            return nextTerm;
-        }
+        return nextTerm;
     };
 
     logger.info('bind all quantifiers');
@@ -178,21 +167,14 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
     return production;
 }
 
-function compileRules(store: N3.Store) : Rule[] {
-    const impliesQuads = store.getQuads(
-        null, 
-        N3.DataFactory.namedNode('http://www.w3.org/2000/10/swap/log#implies'), 
-        null, 
-        N3.DataFactory.defaultGraph()
-    ); 
-
+function compileRules(parsedN3 : IParsedN3) : Rule[] {
     let count = 0;
 
     const rules = [];
 
-    for (const quad of impliesQuads) {
-        const implicator   = parseStatements(store, null, null, null, quad.subject);
-        const implications = parseStatements(store, null, null, null, quad.object);
+    for (const quad of parsedN3.implies) {
+        const implicator   = parseStatements(parsedN3.graphs[quad.subject.value]);
+        const implications = parseStatements(parsedN3.graphs[quad.object.value]);
 
         const implicatorMap      = new Map<string,string>();
         const implicatorSparql   = statementsAsSPARQL(implicator,implicatorMap);
@@ -221,12 +203,12 @@ function compileRules(store: N3.Store) : Rule[] {
 
 // Execute all the rules in the N3.Store and return a new N3.Store containing all
 // inferred quads
-async function think(store: N3.Store) : Promise<N3.Store> {
+async function think(parsedN3: IParsedN3) : Promise<N3.Store> {
     // Store that holds the produced graphs
     const production = new N3.Store();
 
     // An array of rules (the formulas in the graph)
-    const rules = compileRules(store);
+    const rules = compileRules(parsedN3);
 
     // A skolem generator 
     const skolemitor = nextSkolem();
@@ -239,7 +221,7 @@ async function think(store: N3.Store) : Promise<N3.Store> {
     do {
         for (const rule of rules) {
             // Here we start calculating all the inferred quads..
-            const tmpStore     = await reasoner(store,rule,skolemitor);
+            const tmpStore = await reasoner(parsedN3.store,rule,skolemitor);
 
             logger.info(`Got: ${tmpStore.size} quads`);
 
@@ -252,7 +234,7 @@ async function think(store: N3.Store) : Promise<N3.Store> {
 
             // Add the result to the workStore
             tmpStore.forEach( quad => {
-                store.add(quad);
+                parsedN3.store.add(quad);
                 production.add(quad);
             },null,null,null,N3.DataFactory.defaultGraph());
 
@@ -280,10 +262,10 @@ function statementsAsSPARQL(statements: N3.Quad[][],quantifierMap: Map<string,st
 function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string>, quantifier: () => N3.Term) : string {
 
     const sexpressionPart = (term: N3.Term) => {
-        if (N3.Util.isNamedNode(term)) {
+        if (isNamedNode(term)) {
             return `<${term.value}>`;
         }
-        else if (N3.Util.isBlankNode(term)) {
+        else if (isBlankNode(term)) {
             if (quantifierMap.has(term.value)) {
                 // We are ok
             }
@@ -292,7 +274,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
             }
             return quantifierMap.get(term.value); 
         }
-        else if (N3.Util.isVariable(term)) {
+        else if (isVariable(term)) {
             if (quantifierMap.has(term.value)) {
                 // We are ok
             }
@@ -302,7 +284,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
 
             return quantifierMap.get(term.value); 
         }
-        else if (N3.Util.isLiteral(term)) {
+        else if (isLiteral(term)) {
             return `"${term.value}"`;
         }
         else {
@@ -343,4 +325,24 @@ function make_skolem_namespace() : string {
     const rand  = Math.floor(Math.random() * (2**62)).toString();
     const genid = Buffer.from(sha256(rand)).toString('base64url');
     return `http://phochste.github.io/.well-known/genid/${genid}#`;
+}
+
+function isBlankNode(term: N3.Term) : boolean {
+    return N3.Util.isBlankNode(term);
+}
+
+function isLiteral(term: N3.Term) : boolean {
+    return N3.Util.isBlankNode(term);
+}
+
+function isNamedNode(term: N3.Term) : boolean {
+    return N3.Util.isNamedNode(term);
+}
+
+function isVariable(term: N3.Term) : boolean {
+    return N3.Util.isVariable(term);
+}
+
+function isBlankNodeOrVariable(term: N3.Term) : boolean {
+    return isBlankNode(term) || isVariable(term);
 }
