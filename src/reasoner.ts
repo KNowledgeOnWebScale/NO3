@@ -2,7 +2,7 @@ import * as N3 from 'n3';
 import * as RDF from "@rdfjs/types";
 import { sha256 } from 'js-sha256';
 import { sparqlQuery, unSkolemizedValue } from './sparql';
-import { parseStatements, store2string } from './parse';
+import { IParsedN3, parseStatements, store2string } from './parse';
 import { Bindings } from '@comunica/types';
 import { getLogger } from "log4js";
 
@@ -178,21 +178,14 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
     return production;
 }
 
-function compileRules(store: N3.Store) : Rule[] {
-    const impliesQuads = store.getQuads(
-        null, 
-        N3.DataFactory.namedNode('http://www.w3.org/2000/10/swap/log#implies'), 
-        null, 
-        N3.DataFactory.defaultGraph()
-    ); 
-
+function compileRules(parsedN3 : IParsedN3) : Rule[] {
     let count = 0;
 
     const rules = [];
 
-    for (const quad of impliesQuads) {
-        const implicator   = parseStatements(store, null, null, null, quad.subject);
-        const implications = parseStatements(store, null, null, null, quad.object);
+    for (const quad of parsedN3.implies) {
+        const implicator   = parseStatements(parsedN3.graphs[quad.subject.value]);
+        const implications = parseStatements(parsedN3.graphs[quad.object.value]);
 
         const implicatorMap      = new Map<string,string>();
         const implicatorSparql   = statementsAsSPARQL(implicator,implicatorMap);
@@ -221,12 +214,12 @@ function compileRules(store: N3.Store) : Rule[] {
 
 // Execute all the rules in the N3.Store and return a new N3.Store containing all
 // inferred quads
-async function think(store: N3.Store) : Promise<N3.Store> {
+async function think(parsedN3: IParsedN3) : Promise<N3.Store> {
     // Store that holds the produced graphs
     const production = new N3.Store();
 
     // An array of rules (the formulas in the graph)
-    const rules = compileRules(store);
+    const rules = compileRules(parsedN3);
 
     // A skolem generator 
     const skolemitor = nextSkolem();
@@ -239,7 +232,7 @@ async function think(store: N3.Store) : Promise<N3.Store> {
     do {
         for (const rule of rules) {
             // Here we start calculating all the inferred quads..
-            const tmpStore     = await reasoner(store,rule,skolemitor);
+            const tmpStore = await reasoner(parsedN3.store,rule,skolemitor);
 
             logger.info(`Got: ${tmpStore.size} quads`);
 
@@ -252,7 +245,7 @@ async function think(store: N3.Store) : Promise<N3.Store> {
 
             // Add the result to the workStore
             tmpStore.forEach( quad => {
-                store.add(quad);
+                parsedN3.store.add(quad);
                 production.add(quad);
             },null,null,null,N3.DataFactory.defaultGraph());
 

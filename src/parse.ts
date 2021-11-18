@@ -5,8 +5,19 @@ const logger = getLogger();
 
 export {
     parseN3,
+    IParsedN3,
     parseStatements,
     store2string
+};
+
+interface IParsedN3 {
+    store: N3.Store,
+    implies: N3.Quad[] ,
+    graphs: IGraphIndex
+};
+
+interface IGraphIndex {
+    [index: string] : N3.Quad[];
 };
 
 // Given an N3.Store return an Notation3 string
@@ -30,13 +41,30 @@ async function store2string(store: N3.Store) : Promise<string> {
 }
 
 // Parse a Notation3 string into an N3.Store
-async function parseN3(N3String: string) : Promise<N3.Store> {
+async function parseN3(N3String: string) : Promise<IParsedN3> {
     const parser = new N3.Parser({ format: 'Notation3' });
+
     const store  = new N3.Store();    
+    const graphIndex   : IGraphIndex = {};
+    const impliesIndex : N3.Quad[] = [];
 
     parser.parse(N3String,
         (error, quad, _prefixes) => {
             if (quad) {
+                const graphId = quad.graph.value;
+
+                if (quad.graph.equals(N3.DataFactory.defaultGraph()) &&
+                    quad.predicate.value === 'http://www.w3.org/2000/10/swap/log#implies') {
+                        impliesIndex.push(quad);
+                }
+
+                if (graphIndex[graphId]) {
+                    graphIndex[graphId].push(quad);
+                }
+                else {
+                    graphIndex[graphId] = [quad];
+                } 
+
                 store.add(quad);
             }
             else {
@@ -48,15 +76,16 @@ async function parseN3(N3String: string) : Promise<N3.Store> {
             }
         });
 
-    return store;
+    return {
+        store: store ,
+        implies: impliesIndex ,
+        graphs: graphIndex
+    };
 }
 
 // Parse all quads in a (sub)graph into an array of N3.Quad[] statements.
 // We will use these qauds to execute Notation3 built-ins.
-function parseStatements(store: N3.Store
-    , subject: N3.OTerm, predicate: N3.OTerm, object: N3.OTerm, graph: N3.OTerm) : N3.Quad[][] { 
-    const quads = store.getQuads(subject, predicate, object, graph);
-
+function parseStatements(quads: N3.Quad[]) : N3.Quad[][] { 
     let result: N3.Quad[][] = [];
 
     let next: N3.Quad[];
