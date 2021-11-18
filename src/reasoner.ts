@@ -1,7 +1,7 @@
 import * as N3 from 'n3';
 import * as RDF from "@rdfjs/types";
 import { sha256 } from 'js-sha256';
-import { sparqlQuery, unSkolemizedValue } from './sparql';
+import { sparqlQuery } from './sparql';
 import { IParsedN3, parseStatements, store2string } from './parse';
 import { Bindings } from '@comunica/types';
 import { getLogger } from "log4js";
@@ -54,13 +54,7 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
         if (implicatorMap.has(term.value)) {
             const key = <string> implicatorMap.get(term.value);
             const nextTerm =  <N3.Term> binding.get(key); 
-            // See later..why unSkolemized is required...
-            if (isBlankNode(nextTerm)) {
-                return N3.DataFactory.blankNode(unSkolemizedValue(nextTerm));
-            }
-            else {
-                return nextTerm;
-            }
+            return nextTerm;
         }
         else {
             return null;
@@ -139,14 +133,7 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
             nextTerm = term; 
         }
 
-        // SPARQL 1.1. requires blank nodes to be skolemized over different scopes
-        // This we have to undo to be able to reason about existing blank nodes...
-        if (isBlankNode(nextTerm)) {
-            return N3.DataFactory.blankNode(unSkolemizedValue(nextTerm));
-        }
-        else {
-            return nextTerm;
-        }
+        return nextTerm;
     };
 
     logger.info('bind all quantifiers');
