@@ -140,7 +140,7 @@ Given:
 :Guitar a :MusicInstrument .
 :Piano a :MusicInstrument .
 
-{ ?S :plays [ a :MusicInstrument ] .  } => { ?S :canEnter :Recital. }.
+{ ?S :plays [ a :MusicInstrument ] .  } => { ?S :canJoin :MyBand. }.
 ```
 
 Results in:
