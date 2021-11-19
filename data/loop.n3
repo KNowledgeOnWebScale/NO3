@@ -1,4 +1,4 @@
-@prefix : <urn:x:>.
+PREFIX : <https://example.org/loop#>
 
 :Hank :loves :Pizza.
 

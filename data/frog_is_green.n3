@@ -1,4 +1,4 @@
-PREFIX : <urn:x:> 
+PREFIX : <https://example.org/order#>
 
 :Fitz :does :croak .
 :Fitz :eats :flies .

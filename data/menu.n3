@@ -1,4 +1,4 @@
-@prefix : <http://example.org/ex#>.
+PREFIX : <https://example.org/menu#>
 
 :Hank :cooks :Soup .
 

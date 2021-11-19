@@ -1,4 +1,4 @@
-@prefix : <urn:x:>.
+@prefix : <https://example.org/order#>.
 
 :Hank :plays :Guitar.
 :Emily :plays :Piano.

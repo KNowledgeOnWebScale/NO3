@@ -1,4 +1,4 @@
-@prefix : <urn:x:>.
+PREFIX : <https://example.org/list#>
 
 # List matching is straight forward as expected 
 
