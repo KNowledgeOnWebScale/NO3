@@ -28,7 +28,7 @@ interface Rule {
 // Calculate the log:implies for the current store with implicator the left branch of the implies and
 // implications the right branch of implies.
 // Returns a N3.Store with new generated triples
-async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
+async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
     const production = new N3.Store(); 
 
     logger.debug(rule.implicator.sparql);
@@ -36,7 +36,7 @@ async function reasoner(store: N3.Store, rule: Rule, skolemitor: () => N3.Term) 
 
     // Calculate the bindings for the SPARQL
     logger.info('execute sparql');
-    const bindings      = await sparqlQuery(rule.implicator.sparql,store);
+    const bindings = await sparqlQuery(rule.implicator.sparql,sources);
 
     if (bindings.length == 0) {
         return production;
@@ -203,7 +203,7 @@ function compileRules(parsedN3 : IParsedN3) : Rule[] {
 
 // Execute all the rules in the N3.Store and return a new N3.Store containing all
 // inferred quads
-async function think(parsedN3: IParsedN3) : Promise<N3.Store> {
+async function think(parsedN3: IParsedN3, other_sources?: any[]) : Promise<N3.Store> {
     // Store that holds the produced graphs
     const production = new N3.Store();
 
@@ -216,12 +216,22 @@ async function think(parsedN3: IParsedN3) : Promise<N3.Store> {
     let productionDelta    = 0;
     let prevProductionSize = production.size;
 
+    // Set up the source you want to query
+    let sparqlSources = [
+        { type: 'rdfjsSource', value: parsedN3.store } ,
+        { type: 'rdfjsSource', value: production }
+    ];
+
+    // Add more sources e.g. sparql, hdtFile, file
+    // See: https://comunica.dev/docs/query/advanced/source_types/
+    other_sources?.forEach( source => sparqlSources.push(source));
+
     // This is the CWM think loop that can run for ever with simple self-referencing N3 rules
     // See: data/loop.n3
     do {
         for (const rule of rules) {
             // Here we start calculating all the inferred quads..
-            const tmpStore = await reasoner(parsedN3.store,rule,skolemitor);
+            const tmpStore = await reasoner(sparqlSources,rule,skolemitor);
 
             logger.info(`Got: ${tmpStore.size} quads`);
 
@@ -234,7 +244,6 @@ async function think(parsedN3: IParsedN3) : Promise<N3.Store> {
 
             // Add the result to the workStore
             tmpStore.forEach( quad => {
-                parsedN3.store.add(quad);
                 production.add(quad);
             },null,null,null,N3.DataFactory.defaultGraph());
 

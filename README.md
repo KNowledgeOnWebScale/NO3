@@ -2,15 +2,67 @@
 
 NO3 is a small forward-chaining inference engine for a subset of the [Notation3](https://w3c.github.io/N3/spec/) language.
 
+## WARNING
+
+This is experimental sofware.
+
 ## SYNOPSIS
+
+From the command line:
+
+```
+# Execute the rules in one file
+node bin/no3.js data/socrates.n3
+
+# Add a local data file (repeatable option)
+node bin/no3.js --file data/socrates.ttl data/socrates.n3
+
+# Add a remote data file (repeatable option)
+node bin/no3.js --url http://localhost:8080/socrates.ttl data/socrates.n3
+
+# Add a sparql endpoint
+node bin/no3.js --sparql http://localhost:8080/sparql/dataset data/socrates.n3
+```
+
+From a JavaScript program:
 
 ```
 const parse    = require("../js/parse.js");
 const reasoner = require("../js/reasoner.js");
 
+const extra_sources = [
+    { type: "rdfjsSource" , value: A LOCAL PARSED RDFJS source (e.g. a N3.Store) } ,
+    { type: "file" , value: "http://somewhere.org/data.ttl" } ,
+    { type: "sparql" , value: "http://other.org/sparql" }
+];
+
 const parsedN3 = await parse.parseN3(n3String);
-const inferred = await reasoner.think(parsedN3);
+const inferred = await reasoner.think(parsedN3,extra_sources);
 const str      = await parse.store2string(inferred);
+```
+
+## Installation
+
+Need:
+
+- [Node.js](https://nodejs.org/en/)
+- Typescript `npm install typescript -g`
+
+Installation steps:
+
+```
+# Clone the repository
+git clone https://github.com/phochste/NO3.git
+
+# Install depencies
+cd NO3
+npm install
+
+# Compile the typescript
+tsc
+
+# Run hello world
+node bin/no3.js data/socrates.ttl
 ```
 
 ## Notation3 support
