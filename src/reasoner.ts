@@ -301,7 +301,7 @@ function statementSExpression(quads: N3.Quad[], quantifierMap: Map<string,string
         }
         else {
             logger.error(`Found an unknown term type ${term}`);
-            throw new Error(`Unknown term type`);
+            throw new Error(`Unknown term type ${term}`);
         }
     };
 
@@ -344,7 +344,7 @@ function isBlankNode(term: N3.Term) : boolean {
 }
 
 function isLiteral(term: N3.Term) : boolean {
-    return N3.Util.isBlankNode(term);
+    return N3.Util.isLiteral(term);
 }
 
 function isNamedNode(term: N3.Term) : boolean {
