@@ -214,7 +214,6 @@ async function think(parsedN3: IParsedN3, other_sources?: any[]) : Promise<N3.St
     const skolemitor = nextSkolem();
 
     let productionDelta    = 0;
-    let prevProductionSize = production.size;
 
     // Set up the source you want to query
     let sparqlSources = [
@@ -229,6 +228,10 @@ async function think(parsedN3: IParsedN3, other_sources?: any[]) : Promise<N3.St
     // This is the CWM think loop that can run for ever with simple self-referencing N3 rules
     // See: data/loop.n3
     do {
+        let prevProductionSize = production.size;
+
+        logger.info(`>>start rule loop : production size ${production.size}`);
+
         for (const rule of rules) {
             // Here we start calculating all the inferred quads..
             const tmpStore = await reasoner(sparqlSources,rule,skolemitor);
@@ -246,10 +249,10 @@ async function think(parsedN3: IParsedN3, other_sources?: any[]) : Promise<N3.St
             tmpStore.forEach( quad => {
                 production.add(quad);
             },null,null,null,N3.DataFactory.defaultGraph());
-
-            productionDelta    = production.size - prevProductionSize;
-            prevProductionSize = production.size;
         }
+
+        productionDelta    = production.size - prevProductionSize;
+        prevProductionSize = production.size;
 
         logger.info(`Total: ${productionDelta} new quads`);
     } while (productionDelta != 0);
