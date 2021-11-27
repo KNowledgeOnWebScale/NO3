@@ -13,46 +13,46 @@ export {
 const logger = getLogger();
 
 interface Rule {
-    implicator: {
+    premise: {
         sparql: string;
         map: Map<string, string>;
         statements: N3.Quad[][];
     };
-    implications: {
+    conclusion: {
         sparql: string;
         map: Map<string, string>;
         statements: N3.Quad[][];
     };
 }
 
-// Calculate the log:implies for the current store with implicator the left branch of the implies and
-// implications the right branch of implies.
+// Calculate the log:implies for the current store with premise the left branch of the implies and
+// conclusion the right branch of implies.
 // Returns a N3.Store with new generated triples
 async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) : Promise<N3.Store> {
     const production = new N3.Store(); 
 
-    logger.debug(rule.implicator.sparql);
-    logger.debug(`  ${rule.implications.sparql}`);
+    logger.debug(rule.premise.sparql);
+    logger.debug(`  ${rule.conclusion.sparql}`);
 
     // Calculate the bindings for the SPARQL
     logger.info('execute sparql');
-    const bindings = await sparqlQuery(rule.implicator.sparql,sources);
+    const bindings = await sparqlQuery(rule.premise.sparql,sources);
 
     if (bindings.length == 0) {
         return production;
     }
 
-    const implicatorMap   = rule.implicator.map;
-    const implications    = rule.implications.statements;
-    const implicationsMap = rule.implications.map;
+    const premiseMap   = rule.premise.map;
+    const conclusion    = rule.conclusion.statements;
+    const conclusionMap = rule.conclusion.map;
 
     const currentBlankNodeMap = new Map<string,string>();
     const currentVariableMap  = new Map<string,string>();
 
     // Return the bound term or null...
     const boundTerm = (binding: Bindings, term: N3.Term) => {
-        if (implicatorMap.has(term.value)) {
-            const key = <string> implicatorMap.get(term.value);
+        if (premiseMap.has(term.value)) {
+            const key = <string> premiseMap.get(term.value);
             const nextTerm =  <N3.Term> binding.get(key); 
             return nextTerm;
         }
@@ -67,13 +67,13 @@ async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) :
             return false;
         }
         
-        const testTerm = implicationsMap.get(term.value);
+        const testTerm = conclusionMap.get(term.value);
 
         if (! testTerm ) {
             return false;
         }
 
-        return implications.some( st => {
+        return conclusion.some( st => {
             return st.some( q => {
                 const subjectBound   = boundTerm(binding,q.subject);
                 const predicateBound = boundTerm(binding,q.predicate);
@@ -100,9 +100,9 @@ async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) :
         let nextTerm : N3.Term;
 
         // Option 1. Does the term match a binding key?
-        if (implicatorMap.has(term.value)) {
+        if (premiseMap.has(term.value)) {
             logger.debug(`bind 1> ${term.value}`);
-            const key = <string> implicatorMap.get(term.value);
+            const key = <string> premiseMap.get(term.value);
             nextTerm = <N3.Term> binding.get(key); 
         }
         // Option 2. Is term a blank node or a unbound variable?
@@ -110,9 +110,9 @@ async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) :
         else if (isBlankNodeOrVariable(term)) {
             // Option 2a. In a previous run of this rule, we already saw this blank
             // node, reuse the :sk_N blank node
-            if (!isBoundBlankOrVariable(binding,term) && implicationsMap.has(term.value)) {
+            if (!isBoundBlankOrVariable(binding,term) && conclusionMap.has(term.value)) {
                 logger.debug(`bind 2a> ${term.value}`);
-                nextTerm = N3.DataFactory.blankNode(implicationsMap.get(term.value)); 
+                nextTerm = N3.DataFactory.blankNode(conclusionMap.get(term.value)); 
             }
             // Option 2b. For the current rule, the current run, we already saw
             // this blank node, reuse the :sk_N blank node
@@ -138,7 +138,7 @@ async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) :
 
     logger.info('bind all quantifiers');
     bindings.forEach( binding => {
-        implications.forEach( st => {
+        conclusion.forEach( st => {
             st.forEach( q  => {
                 let subject : N3.Term;
                 let predicate : N3.Term;
@@ -161,7 +161,7 @@ async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) :
 
     // Add the blank nodes to known blank nodes
     currentBlankNodeMap.forEach( (value: string, key:string) => {
-        rule.implications.map.set(key,value);
+        rule.conclusion.map.set(key,value);
     });
 
     return production;
@@ -173,25 +173,25 @@ function compileRules(parsedN3 : IParsedN3) : Rule[] {
     const rules = [];
 
     for (const quad of parsedN3.implies) {
-        const implicator   = parseStatements(parsedN3.graphs[quad.subject.value]);
-        const implications = parseStatements(parsedN3.graphs[quad.object.value]);
+        const premise   = parseStatements(parsedN3.graphs[quad.subject.value]);
+        const conclusion = parseStatements(parsedN3.graphs[quad.object.value]);
 
-        const implicatorMap      = new Map<string,string>();
-        const implicatorSparql   = statementsAsSPARQL(implicator,implicatorMap);
+        const premiseMap      = new Map<string,string>();
+        const premiseSparql   = statementsAsSPARQL(premise,premiseMap);
         
-        const implicationsMap    = new Map<string,string>();
-        const implicationsSparql = statementsAsSPARQL(implications);
+        const conclusionMap    = new Map<string,string>();
+        const conclusionSparql = statementsAsSPARQL(conclusion);
 
         const paramterMap = {
-            'implicator' : {
-                'sparql'     : implicatorSparql ,
-                'map'        : implicatorMap,
-                'statements' : implicator
+            'premise' : {
+                'sparql'     : premiseSparql ,
+                'map'        : premiseMap,
+                'statements' : premise
             },
-            'implications' : {
-                'sparql'     : implicationsSparql ,
-                'map'        : implicationsMap, 
-                'statements' : implications
+            'conclusion' : {
+                'sparql'     : conclusionSparql ,
+                'map'        : conclusionMap, 
+                'statements' : conclusion
             }
         };
 
