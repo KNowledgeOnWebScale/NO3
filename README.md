@@ -146,8 +146,8 @@ Given:
 Results in:
 
 ```
-:Hank :canEnter :Recital .
-:Emily :canEnter :Recital .
+:Hank :canJoin :MyBand .
+:Emily :canJoin :MyBand .
 ```
 
 ## Raison d'être
