@@ -47,7 +47,6 @@ async function reasoner(sources: any[], rule: Rule, skolemitor: () => N3.Term) :
     const conclusionMap = rule.conclusion.map;
 
     const currentBlankNodeMap = new Map<string,string>();
-    const currentVariableMap  = new Map<string,string>();
 
     // Return the bound term or null...
     const boundTerm = (binding: Bindings, term: N3.Term) => {

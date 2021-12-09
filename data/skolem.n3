@@ -8,7 +8,7 @@
 { :Cat a ?X. } => { ?X :contains :Felines }.
 
 # Bounded blank node will be skolemized in the output
-{ :Cat a ?Y. } => { ?Y :contains :HouseAnimals }.
+#{ :Cat a ?Y. } => { ?Y :contains :HouseAnimals }.
 
 # Bounded blank node will be skolemized in the output
-{ ?Z :contains :Felines } => { ?Z :mayAlsoHave :Lions }.
+#{ ?Z :contains :Felines } => { ?Z :mayAlsoHave :Lions }.
